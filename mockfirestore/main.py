@@ -12,7 +12,6 @@ Document = Dict[str, Any]
 Collection = Dict[str, Document]
 Store = Dict[str, Collection]
 
-
 class DocumentSnapshot:
     def __init__(self, doc: Document) -> None:
         self._doc = doc
@@ -130,6 +129,43 @@ class CollectionReference:
         return docs
 
 
+class WriteBatch:
+    def __init__(self):
+        self._write_batch = []
+
+    def commit(self):
+        for write in self._write_batch:
+            type = write['type']
+            ref = write['ref']
+            if type == 'set':
+                ref.set(write['data'], write['merge'])
+            elif type == 'update':
+                ref.update(write['data'])
+            elif type == 'delete':
+                ref.delete()
+
+    def delete(self, ref):
+        self._write_batch.append({
+            'type': 'delete',
+            'ref': ref
+        })
+
+    def set(self, ref, data, merge=False):
+        self._write_batch.append({
+            'type': 'set',
+            'ref': ref,
+            'data': data,
+            'merge': merge
+        })
+
+    def update(self, ref, data):
+        self._write_batch.append({
+            'type': 'update',
+            'ref': ref,
+            'data': data
+        })
+
+
 class MockFirestore:
 
     def __init__(self) -> None:
@@ -139,6 +175,9 @@ class MockFirestore:
         if name not in self._data:
             self._data[name] = {}
         return CollectionReference(self._data, [name])
+
+    def batch(self):
+        return WriteBatch()
 
     def reset(self):
         self._data = {}
